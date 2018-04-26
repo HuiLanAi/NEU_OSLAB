@@ -114,14 +114,15 @@ main()
       }
     }
 
-    printf("CTime: %d  PTime: %d \n", process[CONSUMER].time, process[PRODUCER].time);
-
     if (in[0] == 'p' && process[PRODUCER].statu == WAIT)
       printf("PRODUCER is waiting, can't be scheduled.\n");
     if (in[0] == 'c' && process[CONSUMER].statu == WAIT)
       printf("CONSUMER is waiting, can't be scheduled.\n");
     if (in[0] == 'e')
       exit(1);
+
+    printf("CTime: %d  PTime: %d \n", process[CONSUMER].time, process[PRODUCER].time);
+    
     prn(process, pipe, pipetb);
     in[0] = 'N';
     printf("\n\n\n\n\n");
@@ -191,7 +192,7 @@ runc(process, pipe, tb, t) /* run consumer */
   if(process[PRODUCER].statu == WAIT) process[PRODUCER].statu = READY;
 
 
-  if ((tb->readptr) == 0 && (tb->point_producer) != NULL)
+  if ((tb->readptr % 8) == 0 && (tb->point_producer) != NULL)
   //队列被清空且生产者指针不为空
     return (AWAKE);
   return (NORMAL);
@@ -221,7 +222,7 @@ prn(p, pipe, tb)
     else
     {
       if((tb.writeptr % PIPESIZE == 0) && (tb.writeptr != 0) && 
-        (i >= tb.readptr % PIPESIZE) && (tb.readptr % PIPESIZE != 0))
+        (i >= tb.readptr % PIPESIZE))
         printf("  %2d  |", pipe[i]);
 
       else if((tb.readptr % PIPESIZE == 0) && (tb.writeptr % PIPESIZE == 0) 
