@@ -57,10 +57,13 @@ main()
   process[CONSUMER].name = "Consumer\0";
   process[PRODUCER].statu = process[CONSUMER].statu = READY;
   process[PRODUCER].time = process[CONSUMER].time = 0;
+  //初始化
+
   output = 0;
   printf("Now starting the program!\n");
   printf("Press 'p' to run PRODUCER, press 'c' to run CONSUMER.\n");
   printf("Press 'e' to exit from the program.\n");
+
   for (i = 0; i < 1000; i++)
   {
     in[0] = 'N';
@@ -70,29 +73,50 @@ main()
       if (in[0] != 'e' && in[0] != 'p' && in[0] != 'c')
         in[0] = 'N';
     }
+    //蜜汁输入
+
     if (in[0] == 'p' && process[PRODUCER].statu == READY)
+    //在一开始初始化时都置READY
     {
       output = (output + 1) % 100;
       if ((ret = runp(output, process, pipe, &pipetb, PRODUCER)) == SLEEP)
-        pipetb.point_producer = &process[PRODUCER];
-      if (ret == AWAKE)
+      //缓冲区满时返回SLEEP
       {
-        (pipetb.point_consumer)->statu = READY;
+        pipetb.point_producer = &process[PRODUCER];
+        output--;        
+      }
+      printf("\n[][][][][][][][][][][][][][][][][][][][][][]] %d\n", process[PRODUCER].time);
+
+        //给生产者PCB指针赋值
+      if (ret == AWAKE)
+      //当前有消费者指针
+      {
+        (pipetb.point_consumer)->statu = READY;//消费者就绪
         pipetb.point_consumer = NULL;
+        // 给特么的消费者指针赋空值？？？？
+        //runc里没用到消费者指针
         runc(process, pipe, &pipetb, CONSUMER);
       }
     }
+    //调用了生产者进程且生产者进程为就绪态
+
     if (in[0] == 'c' && process[CONSUMER].statu == READY)
     {
       if ((ret = runc(process, pipe, &pipetb, CONSUMER)) == SLEEP)
+      //只有在要读的数据区为空时才返回SLEEP
         pipetb.point_consumer = &process[CONSUMER];
+        //给消费者PCB指针赋值
       if (ret == AWAKE)
+      //队列被清空且生产者指针不为空
       {
         (pipetb.point_producer)->statu = READY;
         pipetb.point_producer = NULL;
         runp(output, process, pipe, &pipetb, PRODUCER);
       }
     }
+
+    printf("CTime: %d  PTime: %d \n", process[CONSUMER].time, process[PRODUCER].time);
+
     if (in[0] == 'p' && process[PRODUCER].statu == WAIT)
       printf("PRODUCER is waiting, can't be scheduled.\n");
     if (in[0] == 'c' && process[CONSUMER].statu == WAIT)
@@ -101,6 +125,7 @@ main()
       exit(1);
     prn(process, pipe, pipetb);
     in[0] = 'N';
+    printf("\n\n\n\n\n");
   }
 }
 
@@ -115,59 +140,65 @@ runp(out, p, pipe, tb, t) /* run producer */
   p[t].statu = RUN;//更改PCB状态
   printf("run PRODUCER. product %d     ", out);
 
-  if (tb->writeptr >= PIPESIZE)
+  if ((process[PRODUCER].time) - (process[CONSUMER].time) >= 8)
   {
-    p[t].statu = WAIT;
+    // printf("\n出现溢出CTime: %d\n", process[CONSUMER].time);
+    p[PRODUCER].statu = WAIT;
     return (SLEEP);
   }
   //查看缓冲区是否已满
 
-  pipe[tb->writeptr] = out;
+  pipe[tb->writeptr % 8] = out;
   tb->writeptr++;
   //写入和移动指针
-  读指针不移动吗？
+  if(process[CONSUMER].statu == WAIT) process[CONSUMER].statu = READY;
 
-  p[t].time++;
-  ？？
+  p[PRODUCER].time++;//time似乎没什么用
 
-  p[t].statu = READY;
+  p[PRODUCER].statu = READY;//把状态置位READY
   if ((tb->point_consumer) != NULL)
     return (AWAKE);
   return (NORMAL);
 }
 
 
-runc(p, pipe, tb, t) /* run consumer */
-    int pipe[], t;
-    struct pcb p[];
+runc(process, pipe, tb, t) /* run consumer */
+    int pipe[], t;//pipe是缓冲区
+    struct pcb process[];
     struct pipetype *tb;
 
 {
-  int c;
-  p[t].statu = RUN;
+  int c;//读出来的数据
+  process[CONSUMER].statu = RUN;
   printf("run CONSUMER. ");
-  if (tb->readptr >= tb->writeptr)
-  maybe是>？
+  if (process[CONSUMER].time >= process[PRODUCER].time)
   {
-    p[t].statu = WAIT;
+    process[CONSUMER].statu = WAIT;
     return (SLEEP);
   }
   //判断是不是空
 
-  
-  c = pipe[tb->readptr];
+  c = pipe[tb->readptr % 8];
   tb->readptr++;
   printf(" use %d      ", c);
-  if (tb->readptr >= tb->writeptr)
-    tb->readptr = tb->writeptr = 0;
-  p[t].time++;
-  p[t].statu = READY;
+  //读数据和指针移动
+  //一次读取一个数据
+
+  // if (tb->readptr >= tb->writeptr)
+  //   tb->readptr = tb->writeptr = 0;
+  process[t].time++;
+  process[t].statu = READY;
+
+  if(process[PRODUCER].statu == WAIT) process[PRODUCER].statu = READY;
+
+
   if ((tb->readptr) == 0 && (tb->point_producer) != NULL)
+  //队列被清空且生产者指针不为空
     return (AWAKE);
   return (NORMAL);
 }
 
-prn(p, pipe, tb) 
+prn(p, pipe, tb)
     int pipe[];
     struct pipetype tb;
     struct pcb p[];
@@ -179,10 +210,24 @@ prn(p, pipe, tb)
     printf("------ ");
   printf("\n        |");
   for (i = 0; i < PIPESIZE; i++)
-    if ((i >= tb.readptr) && (i < tb.writeptr))
-      printf("  %2d  |", pipe[i]);
+  {
+    if ((process[PRODUCER].time - 1) / 8 > (process[CONSUMER].time ) / 8)
+    {
+      if ((i < tb.writeptr % 8) || (i >= tb.readptr % 8))
+        printf("  %2d  |", pipe[i]);
+      else
+        printf("      |");
+    }
+
     else
-      printf("      |");
+    {
+      if ((i >= (tb.readptr % 8)) && (i < (tb.writeptr % 8)))
+        printf("  %2d  |", pipe[i]);
+      //输出没读的数据
+      else
+        printf("      |");
+    }
+  }
   printf("\n         ");
   for (i = 0; i < PIPESIZE; i++)
     printf("------ ");
