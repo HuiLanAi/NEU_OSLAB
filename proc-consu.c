@@ -85,7 +85,6 @@ main()
         pipetb.point_producer = &process[PRODUCER];
         output--;        
       }
-      printf("\n[][][][][][][][][][][][][][][][][][][][][][]] %d\n", process[PRODUCER].time);
 
         //给生产者PCB指针赋值
       if (ret == AWAKE)
@@ -140,7 +139,7 @@ runp(out, p, pipe, tb, t) /* run producer */
   p[t].statu = RUN;//更改PCB状态
   printf("run PRODUCER. product %d     ", out);
 
-  if ((process[PRODUCER].time) - (process[CONSUMER].time) >= 8)
+  if ((process[PRODUCER].time) - (process[CONSUMER].time) >= PIPESIZE)
   {
     // printf("\n出现溢出CTime: %d\n", process[CONSUMER].time);
     p[PRODUCER].statu = WAIT;
@@ -148,7 +147,7 @@ runp(out, p, pipe, tb, t) /* run producer */
   }
   //查看缓冲区是否已满
 
-  pipe[tb->writeptr % 8] = out;
+  pipe[tb->writeptr % PIPESIZE] = out;
   tb->writeptr++;
   //写入和移动指针
   if(process[CONSUMER].statu == WAIT) process[CONSUMER].statu = READY;
@@ -178,7 +177,7 @@ runc(process, pipe, tb, t) /* run consumer */
   }
   //判断是不是空
 
-  c = pipe[tb->readptr % 8];
+  c = pipe[tb->readptr % PIPESIZE];
   tb->readptr++;
   printf(" use %d      ", c);
   //读数据和指针移动
@@ -211,9 +210,9 @@ prn(p, pipe, tb)
   printf("\n        |");
   for (i = 0; i < PIPESIZE; i++)
   {
-    if ((process[PRODUCER].time - 1) / 8 > (process[CONSUMER].time ) / 8)
+    if ((process[PRODUCER].time - 1) / PIPESIZE > (process[CONSUMER].time ) / PIPESIZE)
     {
-      if ((i < tb.writeptr % 8) || (i >= tb.readptr % 8))
+      if ((i < tb.writeptr % PIPESIZE) || (i >= tb.readptr % PIPESIZE))
         printf("  %2d  |", pipe[i]);
       else
         printf("      |");
@@ -221,7 +220,15 @@ prn(p, pipe, tb)
 
     else
     {
-      if ((i >= (tb.readptr % 8)) && (i < (tb.writeptr % 8)))
+      if((tb.writeptr % PIPESIZE == 0) && (tb.writeptr != 0) && 
+        (i >= tb.readptr % PIPESIZE) && (tb.readptr % PIPESIZE != 0))
+        printf("  %2d  |", pipe[i]);
+
+      else if((tb.readptr % PIPESIZE == 0) && (tb.writeptr % PIPESIZE == 0) 
+              && (tb.readptr != 0) && (tb.writeptr != 0))
+        printf("      |");
+        
+      else if ((i >= (tb.readptr % PIPESIZE)) && (i < (tb.writeptr % PIPESIZE)))
         printf("  %2d  |", pipe[i]);
       //输出没读的数据
       else
