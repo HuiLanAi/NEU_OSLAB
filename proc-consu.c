@@ -189,12 +189,12 @@ runc(process, pipe, tb, t) /* run consumer */
   process[t].time++;
   process[t].statu = READY;
 
-  if(process[PRODUCER].statu == WAIT) process[PRODUCER].statu = READY;
+  if(process[PRODUCER].statu == WAIT) {process[PRODUCER].statu = READY;
 
 
-  if ((tb->readptr % 8) == 0 && (tb->point_producer) != NULL)
+ // if ((tb->readptr % 8) == 0 && (tb->point_producer) != NULL)
   //队列被清空且生产者指针不为空
-    return (AWAKE);
+    return (AWAKE);}
   return (NORMAL);
 }
 
