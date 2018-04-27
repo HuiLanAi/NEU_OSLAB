@@ -83,7 +83,6 @@ main()
       //缓冲区满时返回SLEEP
       {
         pipetb.point_producer = &process[PRODUCER];
-        output--;        
       }
 
         //给生产者PCB指针赋值
@@ -189,12 +188,12 @@ runc(process, pipe, tb, t) /* run consumer */
   process[t].time++;
   process[t].statu = READY;
 
-  if(process[PRODUCER].statu == WAIT) {process[PRODUCER].statu = READY;
-
-
+  if(process[PRODUCER].statu == WAIT) 
+  {process[PRODUCER].statu = READY;
  // if ((tb->readptr % 8) == 0 && (tb->point_producer) != NULL)
   //队列被清空且生产者指针不为空
-    return (AWAKE);}
+    return (AWAKE);
+    }
   return (NORMAL);
 }
 
@@ -222,7 +221,7 @@ prn(p, pipe, tb)
     else
     {
       if((tb.writeptr % PIPESIZE == 0) && (tb.writeptr != 0) && 
-        (i >= tb.readptr % PIPESIZE))
+        (i >= tb.readptr % PIPESIZE) && (tb.readptr != tb.writeptr))
         printf("  %2d  |", pipe[i]);
 
       else if((tb.readptr % PIPESIZE == 0) && (tb.writeptr % PIPESIZE == 0) 
@@ -239,7 +238,7 @@ prn(p, pipe, tb)
   printf("\n         ");
   for (i = 0; i < PIPESIZE; i++)
     printf("------ ");
-  printf("\nwriteptr = %d, readptr = %d,  ", tb.writeptr, tb.readptr);
+  printf("\nwriteptr = %d, readptr = %d,  ", tb.writeptr % 8, tb.readptr % 8);
   if (p[PRODUCER].statu == WAIT)
     printf("PRODUCER wait ");
   else
