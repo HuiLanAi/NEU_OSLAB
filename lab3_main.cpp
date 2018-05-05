@@ -4,6 +4,7 @@
 #include "stdlib.h"
 #include "sys/wait.h"
 #include "sys/types.h"
+#include "signal.h"
 using namespace std;
 
 int main()
@@ -16,7 +17,7 @@ int main()
 
     int rawPid = getpid();
     //原始父线程的pid
-    pid_t sonPidA, sonPidB;
+    pid_t sonPidA, sonPidB, sonPidC;
 
     sonPidA = fork();
 
@@ -30,7 +31,8 @@ int main()
         if (sonPidB == 0)
         //子线程B
         {
-            for(int i = 0; i < 3; i++)
+            // sleep(20);
+            for(int i = 0; i < 4; i++)
             {
                 cout << "B: " << getpid() << endl;
                 lockf(pipeNum, F_LOCK, 0);
@@ -84,35 +86,69 @@ int main()
     else
     //父线程
     {
-        cout << "father: " << getpid() << endl;
-        close(pipeEnd[1]);
-        //关闭读端口
-        char cache[200] = {0};
+        sonPidC = fork();
 
-        while (1)
+        if(sonPidC == 0)
+        //C子线程
         {
-            ssize_t len = read(pipeEnd[0], cache, 200);
-            cout << "父线程正在读管道" << endl;
-            if (len > 0)
+            for (int i = 0; i < 2; i++)
             {
-                cache[len] = 0;
-                cout << "得到内容： " << cache << endl;
+                cout << "C: " << getpid() << endl;
+                lockf(pipeNum, F_LOCK, 0);
+                //上锁
+
+                cout << "C即将写入..." << endl;
+                char message[50] = "我是线程C";
+                // sleep(3);
+                close(pipeEnd[0]);
+                ssize_t size = write(pipeEnd[1], message, strlen(message));
+                //size这个返回值是什么玩意
+                //写入
+                lockf(pipeNum, F_ULOCK, 0);
+                //解锁
+
+                sleep(6);
+                cout << "C线程写入完毕" << endl;
             }
-            else if (len == 0)
-            {
-                cout << "所有管道消息都已读完" << endl;
-                break;
-                //必须要读到头才能退出吗??
-            }
+
+            close(pipeEnd[1]);
+            exit(0);
         }
 
-        close(pipeEnd[0]);
-        int status = 0;
-        pid_t wpid = waitpid(sonPidA, &status, 0);
-        wpid = waitpid(sonPidB, &status, 0);
-        
-        exit(0);
+        else
+        //父线程
+        {
+            cout << "father: " << getpid() << endl;
+            close(pipeEnd[1]);
+            //关闭读端口
+            char cache[200] = {0};
 
+            while (1)
+            {
+                ssize_t len = read(pipeEnd[0], cache, 200);
+                cout << "父线程正在读管道" << endl;
+                if (len > 0)
+                {
+                    cache[len] = 0;
+                    cout << "得到内容： " << cache << endl;
+                }
+                else if (len == 0)
+                {
+                    cout << "所有管道消息都已读完" << endl;
+                    break;
+                    //必须要读到头才能退出吗??
+                }
+            }
+
+            close(pipeEnd[0]);
+            int status = 0;
+            pid_t wpid = waitpid(sonPidA, &status, 0);
+            wpid = waitpid(sonPidC, &status, 0);
+
+            exit(0);
+        }
+
+        
     }
 
     return 0;
